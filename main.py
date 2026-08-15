@@ -16,30 +16,22 @@ import re
 
 
 
-"""
-1. We are going to make some constants like:
-A. Model Path (BiGRU)
-B. Tokenizer Path
-C. Max Sequence Length
-D. Emotion Labels
-E. Emotion emojis
-"""
-#A. Model Path (BiGRU)
+# Model Path (BiGRU)
 BASE_DIR = Path(__file__).resolve().parent
 
 model_path = BASE_DIR / "Artifacts" / "BiGRU_Model.keras"
 
 
-#B. Tokenizer Path
+#Tokenizer Path
 tokenizer_path = BASE_DIR / "Artifacts" / "tokenizer.pkl"
 
-#C. Max Sequence Length
+# Max Sequence Length
 max_sequence_length = 50
 
 #D. Emotion Labels
 emotion_labels = ["sadness", "joy", "love", "anger", "fear", "surprise"]
 
-#E. Emotion emojis
+# Emotion emojis
 EMOTION_EMOJIS = {
     "sadness": "😢",
     "joy": "😄",
@@ -51,15 +43,6 @@ EMOTION_EMOJIS = {
 
 
 
-"""
-2. Preprocess the upcoming text
-Cleans raw text so it matches the format used while training.
-A. Convert the text to lowercase. -done
-B. Remove apostrophes (e.g can't -> cant). -done
-C. Remove Special Characters and Punctuation. -done
-D. Remove extra spaces -done
-"""
-
 def preprocess_text(text: str)->str:
     text = text.lower()
     text = re.sub(r"'","",text)
@@ -68,12 +51,6 @@ def preprocess_text(text: str)->str:
     return text
 
 
-"""
-3. Request and Response Schemas
-A. Text Input -> Input schema the text sent by user. -done
-B. Prediciton Response -> Output schema the emotion to predict. -done
-C. Health Response (Server health check)
-"""
 
 class TextInput(BaseModel):
     text : str = Field(
@@ -94,29 +71,21 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
 
-"""
-4. Model Loading and LifeSpan Management
-Load the model and toknizer once the server starts up.
-"""
-dl_model = {} #{1. BiGRU, 2. Tokenizer}-> True , {} -> False
+
+dl_model = {} 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print('Loading the model and tokenizer...')
-    dl_model["BiGRU"] = load_model(model_path)                      #BiGRU Model
+    dl_model["BiGRU"] = load_model(model_path)                     
     with open(tokenizer_path, 'rb') as file:
         dl_model["Tokenizer"] = pickle.load(file)
     print('Model are loaded successfully...')   
 
-    yield #Pause, model is laoded and server is running and at this point model wait karega for request
+    yield 
 
-    dl_model.clear() #Ek baar server band ho gaya uske baad model ko memory se hata do.
-               
-
-"""
-5. Mount the static files to the FastAPI app
-A. Enable CORS (Cross-Origin Resource Sharing) to allow requests from different origins.
-"""
+    dl_model.clear() 
+ 
 app = FastAPI(
     lifespan=lifespan
 )
@@ -140,17 +109,17 @@ B. Health Check Endpoint ('/health')
 C. Predict Emotion Endpoint ('/predict')
 """
 
-#A. Server UI at homepage ('/')
+# Server UI at homepage ('/')
 @app.get('/', include_in_schema=False)
 def server_ui():
     return FileResponse('static/index.html')
 
-#B. Health Check Endpoint ('/health')
+# Health Check Endpoint ('/health')
 @app.get('/health', response_model=HealthResponse)
 def health_check():
     return HealthResponse(status="Server is running", model_loaded=bool(dl_model))
 
-#C. Predict Emotion Endpoint ('/predict')
+# Predict Emotion Endpoint ('/predict')
 @app.post('/predict', response_model=PredictionResponse)
 def predict_emotion(text_input: TextInput):
     """
